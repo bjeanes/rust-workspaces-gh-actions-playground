@@ -1,5 +1,6 @@
 # TODO: incorporate some learnings from https://www.infinyon.com/blog/2021/04/github-actions-best-practices/, esp `sccache` stuff
 # TODO: dispatch event technique from https://mateuscosta.me/rust-releases-with-github-actions looks handy for triggering another workflow, such as to share logic for building binaries
+# https://github.com/Smithay/input.rs/actions/runs/906977788/workflow#L175I
 
 name: CI
 on:
@@ -113,26 +114,26 @@ jobs:
   build:
     # needs: test
     if: github.event.ref == 'refs/heads/main'
-    name: Build release assets
-    runs-on: ${{ matrix.config.os }}
+    name: Build ${{matrix.target}}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        config:
+        include:
           # Linux
-          - { os: ubuntu-22.04, toolchain: stable, target: x86_64-unknown-linux-gnu, cross: false }
+          # - { os: ubuntu-22.04, toolchain: stable, target: x86_64-unknown-linux-gnu }
           - { os: ubuntu-22.04, toolchain: stable, target: aarch64-unknown-linux-gnu, cross: true }
-          - { os: ubuntu-22.04, toolchain: stable, target: x86_64-unknown-linux-musl, cross: true }
+          # - { os: ubuntu-22.04, toolchain: stable, target: x86_64-unknown-linux-musl, cross: true }
           - { os: ubuntu-22.04, toolchain: stable, target: arm-unknown-linux-gnueabi, cross: true }
           - { os: ubuntu-22.04, toolchain: stable, target: armv7-unknown-linux-gnueabihf, cross: true }
 
           # MacOS
-          - { os: macos-12, toolchain: stable, target: x86_64-apple-darwin, cross: false }
-          - { os: macos-12, toolchain: stable, target: aarch64-apple-darwin, cross: false }
+          # - { os: macos-12, toolchain: stable, target: x86_64-apple-darwin }
+          # - { os: macos-12, toolchain: stable, target: aarch64-apple-darwin }
 
-          # Windows
-          - { os: windows-2022, toolchain: stable-x86_64-pc-windows-gnu, target: x86_64-pc-windows-gnu, cross: false }
-          - { os: windows-2022, toolchain: stable-x86_64-pc-windows-msvc, target: x86_64-pc-windows-msvc, cross: false }
+          # # Windows
+          # - { os: windows-2022, toolchain: stable-x86_64-pc-windows-gnu, target: x86_64-pc-windows-gnu }
+          # - { os: windows-2022, toolchain: stable-x86_64-pc-windows-msvc, target: x86_64-pc-windows-msvc }
 
     steps:
       - uses: actions/checkout@master
@@ -140,29 +141,77 @@ jobs:
       - uses: actions-rs/toolchain@v1
         id: rust-toolchain
         with:
-          toolchain: ${{ matrix.config.toolchain }}
-          target: ${{ matrix.config.target }}
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
           profile: minimal
           override: true
           default: true
 
       - name: Install Dependencies
-        if: startsWith(matrix.config.os, 'ubuntu')
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get clean && sudo apt-get update
-          sudo apt-get install -y pkg-config  libudev-dev
+          sudo apt-get install -y pkg-config dpkg-dev
 
-      # I shouldn't _have_ to do this, since the rust-toolchain knows the target, but I am getting the following on ARM architectures:
-      #
-      #   /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.29' not found
-      #
-      # It's clearly trying to link x86_64 libc even when
-      - name: Install gcc toolchain for architecture
-        if: matrix.config.cross && contains(matrix.config.target, 'arm')
+      # - name: Setup linux toolchain
+      #   if: contains(matrix.target, '-linux-') && startsWith(matrix.target, 'x86_64-')
+      #   run: |
+      #     sudo apt-get install -qqy libudev-dev
+
+      # https://github.com/Smithay/input.rs/blob/1d83b2e86/.github/workflows/ci.yml#L186-L219
+      - name: Setup linux toolchain
+        if: contains(matrix.target, '-linux-') && !startsWith(matrix.target, 'x86_64-')
         run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get install -y 'gcc-arm-linux.*'
+          case "${{ matrix.target }}" in
+            i686-*) SYSTEM_ARCH=i386 ;;
+            arm*) SYSTEM_ARCH=armhf ;;
+            aarch64*) SYSTEM_ARCH=arm64 ;;
+          esac
+          GCC_TARGET=$(printf "${{ matrix.target }}" | sed 's/-unknown-/-/' | sed 's/arm[^-]*/arm/g')
+          ENV_TARGET=$(printf "${{ matrix.target }}" | tr '-' '_')
+          ENV_TARGET_UC=$(printf "${ENV_TARGET}" | tr '[[:lower:]]' '[[:upper:]]')
+          sudo rm -f /etc/apt/sources.list.d/*.list
+          case "${{ matrix.target }}" in
+            arm* | aarch64*)
+          sudo tee /etc/apt/sources.list << EOF
+          deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal main universe
+          deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main universe
+          deb [arch=i386,amd64] http://security.ubuntu.com/ubuntu/ focal-security main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main universe
+          EOF
+              ;;
+          esac
+          sudo dpkg --add-architecture ${SYSTEM_ARCH}
+          dpkg --print-foreign-architectures
+          sudo apt-get update -qqy
+          # sudo apt-get dist-upgrade -qqy --fix-broken
+          # sudo apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
+          sudo apt-get install -qqy gcc-${GCC_TARGET} pkg-config-${GCC_TARGET}
+          echo "SYSTEM_ARCH=${SYSTEM_ARCH}" >> $GITHUB_ENV
+          echo "CARGO_TARGET_${ENV_TARGET_UC}_LINKER=${GCC_TARGET}-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_${ENV_TARGET}=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+          echo "PKG_CONFIG=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+          echo "BINDGEN_EXTRA_CLANG_ARGS=\"-L/usr/lib/${GCC_TARGET} -L/lib/${GCC_TARGET}\"" >> $GITHUB_ENV
+
+      - name: Install Linux dependencies
+        if: contains(matrix.target, '-linux-')
+        run: |
+          printf "%s${SYSTEM_ARCH+:${SYSTEM_ARCH}}" libudev-dev | xargs sudo apt-get install -qqy --no-install-recommends
+
+      # # I shouldn't _have_ to do this, since the rust-toolchain knows the target, but I am getting the following on ARM architectures:
+      # #
+      # #   /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.29' not found
+      # #
+      # # It's clearly trying to link x86_64 libc even when
+      # - name: Install gcc toolchain for architecture
+      #   if: matrix.cross && contains(matrix.target, 'arm')
+      #   run: |
+      #     export DEBIAN_FRONTEND=noninteractive
+      #     sudo apt-get install -y 'gcc-arm-linux.*'
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -182,47 +231,47 @@ jobs:
         uses: actions/cache@v1
         with:
           path: target
-          key: ${{ matrix.config.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ matrix.config.target}}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ matrix.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ matrix.target}}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.config.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ matrix.config.target}}-
-            ${{ matrix.config.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-            ${{ matrix.config.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ matrix.config.os }}-cargo-build-target-
+            ${{ matrix.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ matrix.target}}-
+            ${{ matrix.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+            ${{ matrix.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+            ${{ matrix.os }}-cargo-build-target-
             ${{ runner.os }}-cargo-build-target-
 
       - name: Build release asset
         uses: actions-rs/cargo@v1
         with:
-          use-cross: ${{ matrix.config.cross }}
+          use-cross: ${{ matrix.cross }}
           command: build
-          args: --release --target ${{ matrix.config.target }}
+          args: --release --target ${{ matrix.target }}
 
       # - name: Package asset as gzip
-      #   if: "!startsWith(matrix.config.os, 'windows')"
-      #   run: env GZIP=-9 tar zvcf modbus-mqtt.tar.gz -C ./target/${{ matrix.config.target }}/release modbus-mqtt
+      #   if: "!startsWith(matrix.os, 'windows')"
+      #   run: env GZIP=-9 tar zvcf modbus-mqtt.tar.gz -C ./target/${{ matrix.target }}/release modbus-mqtt
 
       # - name: Package asset as zip
-      #   if: startsWith(matrix.config.os, 'windows')
+      #   if: startsWith(matrix.os, 'windows')
       #   run: |
-      #     Compress-Archive -LiteralPath .\target\${{ matrix.config.target }}\release\modbus-mqtt.exe -DestinationPath modbus-mqtt.zip
+      #     Compress-Archive -LiteralPath .\target\${{ matrix.target }}\release\modbus-mqtt.exe -DestinationPath modbus-mqtt.zip
 
       # - name: Upload gzipped artifact
-      #   if: "!startsWith(matrix.config.os, 'windows')"
+      #   if: "!startsWith(matrix.os, 'windows')"
       #   uses: actions/upload-artifact@v2
       #   with:
-      #     name: modbus-mqtt-${{ matrix.config.target }}.tar.gz
+      #     name: modbus-mqtt-${{ matrix.target }}.tar.gz
       #     path: modbus-mqtt.tar.gz
 
       # - name: Upload zipped artifact
-      #   if: startsWith(matrix.config.os, 'windows')
+      #   if: startsWith(matrix.os, 'windows')
       #   uses: actions/upload-artifact@v2
       #   with:
-      #     name: modbus-mqtt-${{ matrix.config.target }}.zip
+      #     name: modbus-mqtt-${{ matrix.target }}.zip
       #     path: modbus-mqtt.zip
       - name: Upload binary
         uses: actions/upload-artifact@v2
         with:
-          name: modbus-mqtt-${{ matrix.config.target }}
+          name: modbus-mqtt-${{ matrix.target }}
           path: modbus-mqtt
 
   # TODO: skip if ${{ github.sha }} can be `git describe`d as an exact version
