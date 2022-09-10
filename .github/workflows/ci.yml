@@ -8,110 +8,110 @@ on:
       - '**'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@master
 
-      - uses: actions-rs/toolchain@v1
-        id: rust-toolchain
-        with:
-          toolchain: stable
-          profile: default
-          override: true
+  #     - uses: actions-rs/toolchain@v1
+  #       id: rust-toolchain
+  #       with:
+  #         toolchain: stable
+  #         profile: default
+  #         override: true
 
-      - name: Install Dependencies
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get clean && sudo apt-get update
-          sudo apt-get install -y pkg-config  libudev-dev
+  #     - name: Install Dependencies
+  #       run: |
+  #         export DEBIAN_FRONTEND=noninteractive
+  #         sudo apt-get clean && sudo apt-get update
+  #         sudo apt-get install -y pkg-config  libudev-dev
 
-      - name: Cache cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
-      - name: Cache cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-index-
-      - name: Cache cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ runner.os }}-cargo-build-target-
+  #     - name: Cache cargo registry
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: ~/.cargo/registry
+  #         key: ${{ runner.os }}-cargo-registry-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-registry-
+  #     - name: Cache cargo index
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: ~/.cargo/git
+  #         key: ${{ runner.os }}-cargo-index-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-index-
+  #     - name: Cache cargo build
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: target
+  #         key: ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+  #           ${{ runner.os }}-cargo-build-target-
 
-      - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose
+  #     - name: Run tests
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
+  #         args: --verbose
 
-  checks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
+  # checks:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@master
 
-      - uses: actions-rs/toolchain@v1
-        id: rust-toolchain
-        with:
-          toolchain: stable
-          profile: default
-          override: true
+  #     - uses: actions-rs/toolchain@v1
+  #       id: rust-toolchain
+  #       with:
+  #         toolchain: stable
+  #         profile: default
+  #         override: true
 
-      - name: Install Dependencies
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get clean && sudo apt-get update
-          sudo apt-get install -y pkg-config  libudev-dev
+  #     - name: Install Dependencies
+  #       run: |
+  #         export DEBIAN_FRONTEND=noninteractive
+  #         sudo apt-get clean && sudo apt-get update
+  #         sudo apt-get install -y pkg-config  libudev-dev
 
-      - name: Cache cargo registry
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ runner.os }}-cargo-registry-
-      - name: Cache cargo index
-        uses: actions/cache@v1
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-index-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ runner.os }}-cargo-index-
-      - name: Cache cargo build
-        uses: actions/cache@v1
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
-            ${{ runner.os }}-cargo-build-target-
+  #     - name: Cache cargo registry
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: ~/.cargo/registry
+  #         key: ${{ runner.os }}-cargo-registry-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-registry-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+  #           ${{ runner.os }}-cargo-registry-
+  #     - name: Cache cargo index
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: ~/.cargo/git
+  #         key: ${{ runner.os }}-cargo-index-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-index-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+  #           ${{ runner.os }}-cargo-index-
+  #     - name: Cache cargo build
+  #       uses: actions/cache@v1
+  #       with:
+  #         path: target
+  #         key: ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-build-target-${{ steps.rust-toolchain.outputs.rustc_hash }}-
+  #           ${{ runner.os }}-cargo-build-target-
 
-      - name: Check rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+  #     - name: Check rustfmt
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: fmt
+  #         args: --all -- --check
 
-      - name: Check clippy warnings
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D clippy::all
+  #     - name: Check clippy warnings
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: clippy
+  #         args: -- -D clippy::all
 
   build:
-    needs: test
+    # needs: test
     if: github.event.ref == 'refs/heads/main'
     name: Build release assets
     runs-on: ${{ matrix.config.os }}
@@ -197,28 +197,33 @@ jobs:
           command: build
           args: --release --target ${{ matrix.config.target }}
 
-      - name: Package asset as gzip
-        if: "!startsWith(matrix.config.os, 'windows')"
-        run: env GZIP=-9 tar zvcf modbus-mqtt.tar.gz -C ./target/${{ matrix.config.target }}/release modbus-mqtt
+      # - name: Package asset as gzip
+      #   if: "!startsWith(matrix.config.os, 'windows')"
+      #   run: env GZIP=-9 tar zvcf modbus-mqtt.tar.gz -C ./target/${{ matrix.config.target }}/release modbus-mqtt
 
-      - name: Package asset as zip
-        if: startsWith(matrix.config.os, 'windows')
-        run: |
-          Compress-Archive -LiteralPath .\target\${{ matrix.config.target }}\release\modbus-mqtt.exe -DestinationPath modbus-mqtt.zip
+      # - name: Package asset as zip
+      #   if: startsWith(matrix.config.os, 'windows')
+      #   run: |
+      #     Compress-Archive -LiteralPath .\target\${{ matrix.config.target }}\release\modbus-mqtt.exe -DestinationPath modbus-mqtt.zip
 
-      - name: Upload gzipped artifact
-        if: "!startsWith(matrix.config.os, 'windows')"
+      # - name: Upload gzipped artifact
+      #   if: "!startsWith(matrix.config.os, 'windows')"
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: modbus-mqtt-${{ matrix.config.target }}.tar.gz
+      #     path: modbus-mqtt.tar.gz
+
+      # - name: Upload zipped artifact
+      #   if: startsWith(matrix.config.os, 'windows')
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: modbus-mqtt-${{ matrix.config.target }}.zip
+      #     path: modbus-mqtt.zip
+      - name: Upload binary
         uses: actions/upload-artifact@v2
         with:
-          name: modbus-mqtt-${{ matrix.config.target }}.tar.gz
-          path: modbus-mqtt.tar.gz
-
-      - name: Upload zipped artifact
-        if: startsWith(matrix.config.os, 'windows')
-        uses: actions/upload-artifact@v2
-        with:
-          name: modbus-mqtt-${{ matrix.config.target }}.zip
-          path: modbus-mqtt.zip
+          name: modbus-mqtt-${{ matrix.config.target }}
+          path: modbus-mqtt
 
   # TODO: skip if ${{ github.sha }} can be `git describe`d as an exact version
   #       tag (we'll release that separately)
