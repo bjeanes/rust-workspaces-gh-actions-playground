@@ -44,18 +44,22 @@ jobs:
         include:
           - TARGET: x86_64-unknown-linux-gnu # tested in a debian container on a mac
             OS: ubuntu-latest
+            DEPS: libudev-dev
           - TARGET: x86_64-unknown-linux-musl # test in an alpine container on a mac
             OS: ubuntu-latest
           - TARGET: aarch64-unknown-linux-gnu # tested on aws t4g.nano
             OS: ubuntu-latest
+            DEPS: libudev-dev:arm64
           - TARGET: aarch64-unknown-linux-musl # tested on aws t4g.nano in alpine container
             OS: ubuntu-latest
           - TARGET: armv7-unknown-linux-gnueabihf # raspberry pi 2-3-4, not tested
             OS: ubuntu-latest
+            DEPS: libudev-dev:armhf
           - TARGET: armv7-unknown-linux-musleabihf # raspberry pi 2-3-4, not tested
             OS: ubuntu-latest
           - TARGET: arm-unknown-linux-gnueabihf # raspberry pi 0-1, not tested
             OS: ubuntu-latest
+            DEPS: libudev-dev:armhf
           - TARGET: arm-unknown-linux-musleabihf # raspberry pi 0-1, not tested
             OS: ubuntu-latest
           - TARGET: x86_64-apple-darwin # Intel Macs
@@ -78,10 +82,46 @@ jobs:
             ~/.cargo/registry
             ./target
           key: build-cargo-registry-${{matrix.TARGET}}
+      - name: Setup cross linux toolchain
+        if: contains(matrix.TARGET, '-linux-') && !startsWith(matrix.TARGET, 'x86_64-')
+        run: |
+          case "${{ matrix.TARGET }}" in
+            i686-*) SYSTEM_ARCH=i386 ;;
+            arm*) SYSTEM_ARCH=armhf ;;
+            aarch64*) SYSTEM_ARCH=arm64 ;;
+          esac
+          GCC_TARGET=$(printf "${{ matrix.TARGET }}" | sed 's/-unknown-/-/' | sed 's/arm[^-]*/arm/g')
+          ENV_TARGET=$(printf "${{ matrix.TARGET }}" | tr '-' '_')
+          ENV_TARGET_UC=$(printf "${ENV_TARGET}" | tr '[[:lower:]]' '[[:upper:]]')
+          sudo rm -f /etc/apt/sources.list.d/*.list
+          case "${{ matrix.TARGET }}" in
+            arm* | aarch64*)
+          sudo tee /etc/apt/sources.list << EOF
+          deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal main universe
+          deb [arch=i386,amd64] http://archive.ubuntu.com/ubuntu/ focal-updates main universe
+          deb [arch=i386,amd64] http://security.ubuntu.com/ubuntu/ focal-security main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main universe
+          deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-security main universe
+          EOF
+              ;;
+          esac
+          sudo dpkg --add-architecture ${SYSTEM_ARCH}
+          dpkg --print-foreign-architectures
+          sudo apt-get update -qqy
+          sudo apt-get --fix-broken install
+          sudo apt-get install -qqy --fix-broken -o Debug::pkgProblemResolver=yes crossbuild-essential-${SYSTEM_ARCH} pkg-config-${GCC_TARGET}
+          echo "SYSTEM_ARCH=${SYSTEM_ARCH}" >> $GITHUB_ENV
+          echo "CARGO_TARGET_${ENV_TARGET_UC}_LINKER=${GCC_TARGET}-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_${ENV_TARGET}=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+          echo "PKG_CONFIG=${GCC_TARGET}-pkg-config" >> $GITHUB_ENV
+          echo "BINDGEN_EXTRA_CLANG_ARGS=\"-L/usr/lib/${GCC_TARGET} -L/lib/${GCC_TARGET}\"" >> $GITHUB_ENV
       - name: Install dependencies
         if: matrix.DEPS
         run: |
-          sudo apt-get install -qqy ${{matrix.DEPS}}
+          sudo apt-get update
+          sudo apt-get install -qqy ${{ matrix.DEPS }}
       - name: Configure linker
         run: |
           # dependencies are only needed on ubuntu as that's the only place where
