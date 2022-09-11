@@ -8,6 +8,7 @@ on:
 env:
   NAME: modbus-mqtt
   CARGO_TERM_COLOR: always
+  PKG_CONFIG_ALLOW_CROSS: 1
 
 defaults:
   run:
@@ -35,6 +36,7 @@ jobs:
       #   run: cargo test --verbose
 
   build:
+    name: Build ${{matrix.TARGET}}
     strategy:
       fail-fast: false
       matrix:
@@ -76,14 +78,19 @@ jobs:
             ~/.cargo/registry
             ./target
           key: build-cargo-registry-${{matrix.TARGET}}
-      - name: List
-        run: find ./
-      - name: Install and configure dependencies
+      - name: Install dependencies
+        if: matrix.DEPS
+        run: |
+          sudo apt-get install -qqy ${{matrix.DEPS}}
+      - name: Configure linker
         run: |
           # dependencies are only needed on ubuntu as that's the only place where
           # we make cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
+            sudo apt-get install -qq \
+              crossbuild-essential-arm64 pkg-config-aarch64-linux-gnu \
+              crossbuild-essential-armhf pkg-config-arm-linux-gnueabihf \
+              libudev-dev
           fi
 
           # some additional configuration for cross-compilation on linux
